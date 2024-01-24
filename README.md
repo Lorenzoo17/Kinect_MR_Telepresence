@@ -10,7 +10,7 @@
 
 ## AVVIARE ACQUISIZIONE KINECT DA HOLOLENS 2 
 Se si vuole effettuare la scansione da Hololens 2 è necessario : 
-1) Una volta abilitato "Enable Holographic Remoting for Play Mode" premere il tasto Play da Unity Editor, in modo da poter utilizzare l'Hololens.
+1) Una volta abilitato "Enable Holographic Remoting for Play Mode" premere il tasto Play da Unity Editor, in modo da poter utilizzare l'Hololens. Apparirà una schermata di connessione con due pulsanti "Host" e "Client", per ora non premere nulla.
 2) Avviare dal computer la build creata in precedenza e, nella schermata di connessione che appare, premere su "Host".
 3) A questo punto da Hololens 2 è possibile premere su "Client" per collegarsi alla sessione.
 4) Se si vuole avviare la scansione da Hololens è necessario premere il tasto "K" da tastiera oppure, indossando il visore, aprire il menu guardando il proprio palmo della mano e premere sul pulsante a forma di camera

@@ -28,10 +28,6 @@ public class ServerTest : MonoBehaviour
     [SerializeField] private KinectImage kinectImage;
     [SerializeField] private AudioSource destSource;
 
-    //Per RealSense
-    [SerializeField] private RealSenseManager rsManager;
-    [SerializeField] private RealSenseImage rsImage;
-
     private byte[] rawCalibrationSaved = null;
     private int depthWidht, depthHeight;
     public void StartServer(){
@@ -139,8 +135,6 @@ public class ServerTest : MonoBehaviour
                 byte[] rawColor = new byte[colorLenght];
                 reader.GetBytes(rawColor, colorLenght);
 
-                int derivedFrameCount = reader.GetInt();
-
                 Debug.Log($"Compressed received data {rawDepth.Length + rawColor.Length}");
 
                 //Invio dati compressi agli altri client
@@ -150,7 +144,6 @@ public class ServerTest : MonoBehaviour
                 kinectWriter.Put(rawDepth);
                 kinectWriter.Put(colorLenght);
                 kinectWriter.Put(rawColor);
-                kinectWriter.Put(derivedFrameCount);
 
                 foreach(NetPeer client in peersConnected){
                     if(client.Id != peer.Id)
@@ -161,7 +154,7 @@ public class ServerTest : MonoBehaviour
                 rawDepth = DataCompression.DeflateDecompress(rawDepth);
                 rawColor = DataCompression.DeflateDecompress(rawColor);
 
-                OnReceiveDepthAndColorData(rawDepth, rawColor, derivedFrameCount);
+                OnReceiveDepthAndColorData(rawDepth, rawColor);
             }
             else if(packetTypeReceived == NetworkDataType.ItemStatePacket){
                 int itemId = reader.GetInt();
@@ -210,52 +203,6 @@ public class ServerTest : MonoBehaviour
                 destSource.clip = AudioClip.Create("test", samples.Length, channels, TestAudio.FREQUENCY, false);
                 destSource.clip.SetData(samples, 0);
                 if(!destSource.isPlaying) destSource.Play();
-            }
-            else if(packetTypeReceived == NetworkDataType.DepthColorRs) {
-                //Debug.Log("RealSense received");
-
-                int rawDepthLenght = reader.GetInt();
-                byte[] rawDepth = new byte[rawDepthLenght];
-
-                reader.GetBytes(rawDepth, rawDepthLenght);
-
-                int rawColorLenght = reader.GetInt();
-                byte[] rawColor = new byte[rawColorLenght];
-
-                reader.GetBytes(rawColor, rawColorLenght);
-
-                Intel.RealSense.Intrinsics intrinsics = reader.GetIntrinsics();
-
-                Vector2 bb_center = reader.GetVector2();
-                int faceArea = reader.GetInt();
-
-                Debug.Log($"Bytes received : depth {rawDepth.Length} , color {rawColor.Length}");
-
-                int clientSenderID = peer.Id;
-
-                //Invio dati compressi agli altri client
-                NetDataWriter rsWriter = new();
-                rsWriter.Put((int)NetworkDataType.DepthColorRs);
-                rsWriter.Put(rawDepthLenght);
-                rsWriter.Put(rawDepth);
-                rsWriter.Put(rawColorLenght);
-                rsWriter.Put(rawColor);
-                rsWriter.Put(intrinsics);
-                rsWriter.Put(bb_center);
-                rsWriter.Put(faceArea);
-                rsWriter.Put(clientSenderID); //Si trasmette anche l'id del client per aggiornare il corretto rsImage
-
-                foreach (NetPeer client in peersConnected) {
-                    if (client.Id != peer.Id)
-                        SendData(client, rsWriter, DeliveryMethod.ReliableUnordered);
-                }
-
-                //Eventuale decompressione
-
-                rawDepth = DataCompression.DeflateDecompress(rawDepth);
-                rawColor = DataCompression.DeflateDecompress(rawColor);
-
-                OnReceiveRealSendeDepthColor(rawDepth, rawColor, intrinsics, bb_center, faceArea);
             }
         };
     }
@@ -415,11 +362,10 @@ public class ServerTest : MonoBehaviour
         }
     }
 
-
     //---METODI GESTIONE KINECT
-    private void OnReceiveDepthAndColorData(byte[] rawDepth, byte[] rawColor, int derivedFrameCount) {
+    private void OnReceiveDepthAndColorData(byte[] rawDepth, byte[] rawColor) {
         Debug.Log($"Received depth and color data : {rawDepth.Length + rawColor.Length} bytes");
-        kinectImage.SetMeshGivenDepthAndColorCompressedTemporal(rawDepth, rawColor, derivedFrameCount); //Commentare per HOST e al contempo scommentare in ConnectionStartUp
+        kinectImage.SetMeshGivenDepthAndColorCompressed(rawDepth, rawColor); //Commentare per HOST e al contempo scommentare in ConnectionStartUp
         //kinectImage.SetMeshGivenDepthAndColorOptimized(rawDepth, rawColor);
     }
 
@@ -428,11 +374,6 @@ public class ServerTest : MonoBehaviour
 
         kinectImage.SetTransformation(tempTransformation, depthWidth, depthHeight);
         Debug.Log($"Transformation : {tempTransformation.ToString()} received, width {depthWidth}, height {depthHeight}");
-    }
-
-    //---METODI GESTIONE REAL SENSE
-    private void OnReceiveRealSendeDepthColor(byte[] rawDepth, byte[] rawColor, Intel.RealSense.Intrinsics intrinsics, Vector2 bb_center, int faceArea) {
-        rsImage.SetMeshGivenDepthAndColor(rawDepth, rawColor, intrinsics, bb_center, faceArea);
     }
 
     //---METODI TRASMISSIONE AUDIO

@@ -34,14 +34,6 @@ public class ClientTest : MonoBehaviour
     //Per audio
     [SerializeField] private AudioSource destSource; //Audio Source per riprodurre l'audio in arrivo dagli altri client connessi
 
-
-    //Per RealSense
-    [SerializeField] private RealSenseManager rsManager;
-    [SerializeField] private RealSenseImage rsImage;
-    [SerializeField] private FCBlazeFace faceDetection;
-    [SerializeField] private FCSourceTexture faceDetectionTexture;
-
-    [SerializeField] private GameObject rsImageClientPrefab;
     public void StartClient(string desiredHost){
         listener = new(); //istanziazion di oggetto listener
         client = new(listener); //Le operazioni di rete fanno riferimento agli eventi del listener specificato
@@ -166,14 +158,12 @@ public class ClientTest : MonoBehaviour
                 byte[] rawColor = new byte[colorLenght];
                 reader.GetBytes(rawColor, colorLenght);
 
-                int derivedFrameCount = reader.GetInt();
-
                 //Debug.Log($"Compressed received data {rawDepth.Length + rawColor.Length}");
                 //decompressione dei dati ricevuti
                 rawDepth = DataCompression.DeflateDecompress(rawDepth);
                 rawColor = DataCompression.DeflateDecompress(rawColor);
 
-                OnReceiveDepthAndColorData(rawDepth, rawColor, derivedFrameCount);
+                OnReceiveDepthAndColorData(rawDepth, rawColor);
             }
             else if(packetTypeReceived == NetworkDataType.ItemStatePacket){
                 int itemID = reader.GetInt(); //ID dell'oggetto da aggiornare
@@ -229,42 +219,6 @@ public class ClientTest : MonoBehaviour
                 destSource.clip.SetData(samples, 0); // si assegnano ii sample alla clip creata
                 if(!destSource.isPlaying) destSource.Play(); //si fa partire l'audio
             }
-            else if(packetTypeReceived == NetworkDataType.DepthColorRs) {
-                int rawDepthLenght = reader.GetInt();
-                byte[] rawDepth = new byte[rawDepthLenght];
-
-                reader.GetBytes(rawDepth, rawDepthLenght);
-
-                int rawColorLenght = reader.GetInt();
-                byte[] rawColor = new byte[rawColorLenght];
-
-                reader.GetBytes(rawColor, rawColorLenght);
-
-                Intel.RealSense.Intrinsics intrinsics = reader.GetIntrinsics();
-
-                Vector2 bb_center = reader.GetVector2();
-                int faceArea = reader.GetInt();
-
-                int clientSenderID = reader.GetInt(); // Si legge l'ID del client che ha trasmesso il dato, in modo da aggiornare il corretto rsImage
-                //eventuale decompressione
-
-                rawDepth = DataCompression.DeflateDecompress(rawDepth);
-                rawColor = DataCompression.DeflateDecompress(rawColor);
-
-                RealSenseImage[] rsImagesInScene = FindObjectsOfType<RealSenseImage>();
-
-                Debug.Log("Need to update rsImage " + clientSenderID);
-
-                foreach(RealSenseImage rs in  rsImagesInScene) {
-                    Debug.Log("Checking rsImage : " + rs.GetRsImageClientID());
-
-                    if(rs.GetRsImageClientID() == clientSenderID) {
-                        rs.SetMeshGivenDepthAndColor(rawDepth, rawColor, intrinsics, bb_center, faceArea);
-                    }
-                }
-
-                //rsImage.SetMeshGivenDepthAndColor(rawDepth, rawColor, intrinsics, bb_center, faceArea);
-            }
         };
     }
 
@@ -287,7 +241,7 @@ public class ClientTest : MonoBehaviour
             if(currSendTime <= 0){
                 //SendPing(5000);
                 //SendDepthAndColor();
-                SendDepthAndColorTemporal();
+                SendDepthAndColor();
 
                 /*
                 SendDepthAndColorRealSense(); //Invio dati depht e color
@@ -305,10 +259,6 @@ public class ClientTest : MonoBehaviour
             SendPosition(new Vector3(10, 15, 5));
         }
         */
-
-        if (Input.GetKeyDown(KeyCode.M)) {
-            SendDepthAndColorRealSense();
-        }
     }
 
     //--SCANSIONE DA ALTRO CODICE
@@ -428,72 +378,6 @@ public class ClientTest : MonoBehaviour
         SendData(writer, DeliveryMethod.ReliableUnordered);
     }
 
-    private void SendDepthAndColorTemporal() {
-        byte[] rawDepth, rawColor;
-        int derivedFrameCount = 0;
-        (rawDepth, rawColor, derivedFrameCount) = kinectManager.GetCaptureDepthCompressedTemporal();
-        //(rawDepth, rawColor) = kinectManager.GetCaptureDepthOptimized(); //
-
-        //compressione dati da inviare (necessario decomprimerli lato server)
-        rawDepth = DataCompression.DeflateCompress(rawDepth);
-        rawColor = DataCompression.DeflateCompress(rawColor);
-
-        Debug.Log("Depth deflated : " + rawDepth.Length + "\nColor deflated : " + rawColor.Length);
-
-        NetworkDataType packetType = NetworkDataType.DepthColorPacket;
-        int rawDepthLenght = rawDepth.Length;
-        NetDataWriter writer = new();
-
-        writer.Put((int)packetType);
-        writer.Put(rawDepthLenght);
-        writer.Put(rawDepth);
-
-        int rawColorLenght = rawColor.Length;
-        writer.Put(rawColorLenght);
-        writer.Put(rawColor);
-
-        writer.Put(derivedFrameCount);
-
-        SendData(writer, DeliveryMethod.ReliableUnordered);
-    }
-
-    //---PACCHETTI GESTIONE REALSENSE---
-
-    private void SendDepthAndColorRealSense() { //Trasmission depth e color (e anche intrinsics per ora) del realsense
-        byte[] rawDepth, rawColor;
-        Intel.RealSense.Intrinsics intrinsics_to_send;
-
-        (rawDepth, rawColor, intrinsics_to_send) = rsManager.RealSenseCaptureDepthAndColor();
-
-        //compressione di depth e color
-        rawDepth = DataCompression.DeflateCompress(rawDepth);
-        rawColor = DataCompression.DeflateCompress(rawColor);
-
-        NetDataWriter writer = new();
-
-        NetworkDataType packetType = NetworkDataType.DepthColorRs;
-        int rawDepthLenght = rawDepth.Length;
-
-        writer.Put((int)packetType);
-        writer.Put(rawDepthLenght);
-        writer.Put(rawDepth);
-
-        int rawColorLenght = rawColor.Length;
-        writer.Put(rawColorLenght);
-        writer.Put(rawColor);
-
-        writer.Put(intrinsics_to_send);
-
-        Vector2 bb_center = Vector2.zero;
-        int faceArea = 0;
-        (bb_center, faceArea) = rsManager.GetBBData();
-
-        writer.Put(bb_center);
-        writer.Put(faceArea);
-
-        SendData(writer, DeliveryMethod.ReliableUnordered);
-    }
-
     //---METODI GESTIONE UTENTI IN REMOTO E IN LOCALE
 
     //Aggiornamento posizione e rotazione del client che ha cambiato posizione e inviato quest'ultima al server
@@ -539,9 +423,9 @@ public class ClientTest : MonoBehaviour
     }
 
     //---METODI GESTIONE KINECT
-    private void OnReceiveDepthAndColorData(byte[] rawDepth, byte[] rawColor, int derivedFrameCount) { //Quando si riceve un pacchetto relativo a kinect 
+    private void OnReceiveDepthAndColorData(byte[] rawDepth, byte[] rawColor) { //Quando si riceve un pacchetto relativo a kinect 
         Debug.Log($"Client : received depth and color data decompressed : {rawDepth.Length + rawColor.Length} bytes");
-        kinectImage.SetMeshGivenDepthAndColorCompressedTemporal(rawDepth, rawColor, derivedFrameCount); //Si imposta il mesh del kinectImage locale con le informazioni di profondità e colori ricevute via rete
+        kinectImage.SetMeshGivenDepthAndColorCompressed(rawDepth, rawColor); //Si imposta il mesh del kinectImage locale con le informazioni di profondità e colori ricevute via rete
     }
 
     private void OnReceiveCalibration(byte[] rawCalibration, int depthWidth, int depthHeight) {

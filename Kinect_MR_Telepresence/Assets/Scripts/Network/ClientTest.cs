@@ -111,12 +111,14 @@ public class ClientTest : MonoBehaviour
                     Debug.Log($"Spawned client {idToSpawn}");
 
                     //Si spawna anche il realSenseImage per quel client
+                    /*
                     float posSpawnMultiplier = 3f;
                     GameObject newRsImage = Instantiate(rsImageClientPrefab, new Vector3(idToSpawn * posSpawnMultiplier, 1f, 1f), Quaternion.identity);
                     newRsImage.transform.localRotation = Quaternion.Euler(0f, 0f, 180f); //Ruoto di 180 rispetto ad asse z
                     newRsImage.GetComponent<RealSenseImage>().SetRsImageClientID(idToSpawn); //Si assegna al realsense image lo stesso id del client
                     newRsImage.GetComponent<NetworkItem>().SetNetworkID(idToSpawn); //Vado anche ad aggiornare il networkID con lo stesso ID del client
                     Debug.Log($"Spawned rs image for client {newRsImage.GetComponent<RealSenseImage>().GetRsImageClientID()}");
+                    */
                 }
             }
             else if(packetTypeReceived == NetworkDataType.UserDespawnPacket){
@@ -134,6 +136,7 @@ public class ClientTest : MonoBehaviour
                 }
 
                 //Si despawna anche il realsense image
+                /*
                 RealSenseImage[] rsImages = FindObjectsOfType<RealSenseImage>();
 
                 if(rsImages.Length > 0) {
@@ -144,6 +147,7 @@ public class ClientTest : MonoBehaviour
                         }
                     }
                 }
+                */
             }
             else if(packetTypeReceived == NetworkDataType.CalibrationPacket){
                 int calibrationLength = reader.GetInt(); //Reading calibration lenght
@@ -162,12 +166,14 @@ public class ClientTest : MonoBehaviour
                 byte[] rawColor = new byte[colorLenght];
                 reader.GetBytes(rawColor, colorLenght);
 
+                int derivedFrameCount = reader.GetInt();
+
                 //Debug.Log($"Compressed received data {rawDepth.Length + rawColor.Length}");
                 //decompressione dei dati ricevuti
                 rawDepth = DataCompression.DeflateDecompress(rawDepth);
                 rawColor = DataCompression.DeflateDecompress(rawColor);
 
-                OnReceiveDepthAndColorData(rawDepth, rawColor);
+                OnReceiveDepthAndColorData(rawDepth, rawColor, derivedFrameCount);
             }
             else if(packetTypeReceived == NetworkDataType.ItemStatePacket){
                 int itemID = reader.GetInt(); //ID dell'oggetto da aggiornare
@@ -281,9 +287,13 @@ public class ClientTest : MonoBehaviour
             if(currSendTime <= 0){
                 //SendPing(5000);
                 //SendDepthAndColor();
+                SendDepthAndColorTemporal();
+
+                /*
                 SendDepthAndColorRealSense(); //Invio dati depht e color
                 faceDetectionTexture.ExecuteBlit(); //Computazione faceDetection (texture)
                 faceDetection.ExecuteDetection(); //Computazione faceDetection (qui si distrugge anche la texture in SendDepthAndColorRealSense() per liberare memoria)
+                */
                 currSendTime = sendRate;
             }else{
                 currSendTime -= Time.deltaTime;
@@ -394,12 +404,14 @@ public class ClientTest : MonoBehaviour
     //Pacchetto trasmissione dati depth camera e color camera
     private void SendDepthAndColor() {
         byte[] rawDepth, rawColor;
-        (rawDepth, rawColor) = kinectManager.GetCaptureDepth();
+        (rawDepth, rawColor) = kinectManager.GetCaptureDepthCompressed();
         //(rawDepth, rawColor) = kinectManager.GetCaptureDepthOptimized(); //
 
         //compressione dati da inviare (necessario decomprimerli lato server)
         rawDepth = DataCompression.DeflateCompress(rawDepth);
         rawColor = DataCompression.DeflateCompress(rawColor);
+
+        Debug.Log("Depth deflated : " + rawDepth.Length + "\nColor deflated : " + rawColor.Length);
 
         NetworkDataType packetType = NetworkDataType.DepthColorPacket;
         int rawDepthLenght = rawDepth.Length;
@@ -412,6 +424,35 @@ public class ClientTest : MonoBehaviour
         int rawColorLenght = rawColor.Length;
         writer.Put(rawColorLenght);
         writer.Put(rawColor);
+
+        SendData(writer, DeliveryMethod.ReliableUnordered);
+    }
+
+    private void SendDepthAndColorTemporal() {
+        byte[] rawDepth, rawColor;
+        int derivedFrameCount = 0;
+        (rawDepth, rawColor, derivedFrameCount) = kinectManager.GetCaptureDepthCompressedTemporal();
+        //(rawDepth, rawColor) = kinectManager.GetCaptureDepthOptimized(); //
+
+        //compressione dati da inviare (necessario decomprimerli lato server)
+        rawDepth = DataCompression.DeflateCompress(rawDepth);
+        rawColor = DataCompression.DeflateCompress(rawColor);
+
+        Debug.Log("Depth deflated : " + rawDepth.Length + "\nColor deflated : " + rawColor.Length);
+
+        NetworkDataType packetType = NetworkDataType.DepthColorPacket;
+        int rawDepthLenght = rawDepth.Length;
+        NetDataWriter writer = new();
+
+        writer.Put((int)packetType);
+        writer.Put(rawDepthLenght);
+        writer.Put(rawDepth);
+
+        int rawColorLenght = rawColor.Length;
+        writer.Put(rawColorLenght);
+        writer.Put(rawColor);
+
+        writer.Put(derivedFrameCount);
 
         SendData(writer, DeliveryMethod.ReliableUnordered);
     }
@@ -498,9 +539,9 @@ public class ClientTest : MonoBehaviour
     }
 
     //---METODI GESTIONE KINECT
-    private void OnReceiveDepthAndColorData(byte[] rawDepth, byte[] rawColor) { //Quando si riceve un pacchetto relativo a kinect 
+    private void OnReceiveDepthAndColorData(byte[] rawDepth, byte[] rawColor, int derivedFrameCount) { //Quando si riceve un pacchetto relativo a kinect 
         Debug.Log($"Client : received depth and color data decompressed : {rawDepth.Length + rawColor.Length} bytes");
-        kinectImage.SetMeshGivenDepthAndColor(rawDepth, rawColor); //Si imposta il mesh del kinectImage locale con le informazioni di profondità e colori ricevute via rete
+        kinectImage.SetMeshGivenDepthAndColorCompressedTemporal(rawDepth, rawColor, derivedFrameCount); //Si imposta il mesh del kinectImage locale con le informazioni di profondità e colori ricevute via rete
     }
 
     private void OnReceiveCalibration(byte[] rawCalibration, int depthWidth, int depthHeight) {

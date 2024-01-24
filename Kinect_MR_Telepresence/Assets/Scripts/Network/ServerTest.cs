@@ -139,6 +139,8 @@ public class ServerTest : MonoBehaviour
                 byte[] rawColor = new byte[colorLenght];
                 reader.GetBytes(rawColor, colorLenght);
 
+                int derivedFrameCount = reader.GetInt();
+
                 Debug.Log($"Compressed received data {rawDepth.Length + rawColor.Length}");
 
                 //Invio dati compressi agli altri client
@@ -148,6 +150,7 @@ public class ServerTest : MonoBehaviour
                 kinectWriter.Put(rawDepth);
                 kinectWriter.Put(colorLenght);
                 kinectWriter.Put(rawColor);
+                kinectWriter.Put(derivedFrameCount);
 
                 foreach(NetPeer client in peersConnected){
                     if(client.Id != peer.Id)
@@ -158,7 +161,7 @@ public class ServerTest : MonoBehaviour
                 rawDepth = DataCompression.DeflateDecompress(rawDepth);
                 rawColor = DataCompression.DeflateDecompress(rawColor);
 
-                OnReceiveDepthAndColorData(rawDepth, rawColor);
+                OnReceiveDepthAndColorData(rawDepth, rawColor, derivedFrameCount);
             }
             else if(packetTypeReceived == NetworkDataType.ItemStatePacket){
                 int itemId = reader.GetInt();
@@ -414,9 +417,9 @@ public class ServerTest : MonoBehaviour
 
 
     //---METODI GESTIONE KINECT
-    private void OnReceiveDepthAndColorData(byte[] rawDepth, byte[] rawColor) {
+    private void OnReceiveDepthAndColorData(byte[] rawDepth, byte[] rawColor, int derivedFrameCount) {
         Debug.Log($"Received depth and color data : {rawDepth.Length + rawColor.Length} bytes");
-        kinectImage.SetMeshGivenDepthAndColor(rawDepth, rawColor); //Commentare per HOST e al contempo scommentare in ConnectionStartUp
+        kinectImage.SetMeshGivenDepthAndColorCompressedTemporal(rawDepth, rawColor, derivedFrameCount); //Commentare per HOST e al contempo scommentare in ConnectionStartUp
         //kinectImage.SetMeshGivenDepthAndColorOptimized(rawDepth, rawColor);
     }
 

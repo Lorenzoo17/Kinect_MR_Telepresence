@@ -6,16 +6,27 @@ using TMPro;
 
 public class InfoWindow : MonoBehaviour
 {
+    public static InfoWindow Instance { get; private set; }
+
+    private void Awake() {
+        Instance = this;
+    }
+
     [SerializeField] private GameObject infoWindow;
     [SerializeField] private float popUpWindowTime;
     private bool alreadySpawned;
 
-    public void SpawnWindow(string textToVisualize){
+    public void SpawnWindow(string textToVisualize, float popUpTime = 0f){
         if(!alreadySpawned){
             GameObject window = Instantiate(infoWindow, Vector3.zero, Quaternion.identity);
             window.transform.Find("Dialog").Find("DescriptionText").GetComponent<TextMeshPro>().text = textToVisualize;
             alreadySpawned = true;
-            StartCoroutine(DestroyWindow(window, popUpWindowTime, ()=>{
+
+            if(popUpTime == 0) {
+                popUpTime = popUpWindowTime;
+            }
+
+            StartCoroutine(DestroyWindow(window, popUpTime, ()=>{
                 alreadySpawned = false;
             }));
         }

@@ -67,7 +67,11 @@ public class KinectManager : MonoBehaviour
     }
 
     private void InitializeKinect(int kinectIndex = 0) {
-        device = Device.Open(kinectIndex);
+        try {
+            device = Device.Open(kinectIndex);
+        }catch(AzureKinectOpenDeviceException e) {
+            Debug.Log("Cannot open camera because of " + e.ToString());
+        }
         config = new DeviceConfiguration();
         config.CameraFPS = FPS.FPS30;
         config.DepthMode = DepthMode.NFOV_2x2Binned;
@@ -90,29 +94,34 @@ public class KinectManager : MonoBehaviour
     }
 
     public (byte[], byte[]) GetCaptureDepthCompressed() {
-        using (Capture capture = device.GetCapture()) {
-            Image depthImage = capture.Depth;
+        try {
+            using (Capture capture = device.GetCapture()) {
+                Image depthImage = capture.Depth;
 
-            byte[] rawDepth = depthImage.Memory.ToArray();
+                byte[] rawDepth = depthImage.Memory.ToArray();
 
-            short[] rawShort = new short[(int)Math.Ceiling((double)rawDepth.Length / 2)];
-            Buffer.BlockCopy(rawDepth, 0, rawShort, 0, rawDepth.Length);
+                short[] rawShort = new short[(int)Math.Ceiling((double)rawDepth.Length / 2)];
+                Buffer.BlockCopy(rawDepth, 0, rawShort, 0, rawDepth.Length);
 
-            int index = 0;
-            for (int i = 0; i < depthImage.HeightPixels; i++) {
-                for (int j = 0; j < depthImage.WidthPixels; j++) {
-                    depthImage.SetPixel<short>(i, j, rawShort[index]); //Si assegnano i pixel dell'immagine depth sulla base dei dati grezzi trasmessi
-                    index++;
+                int index = 0;
+                for (int i = 0; i < depthImage.HeightPixels; i++) {
+                    for (int j = 0; j < depthImage.WidthPixels; j++) {
+                        depthImage.SetPixel<short>(i, j, rawShort[index]); //Si assegnano i pixel dell'immagine depth sulla base dei dati grezzi trasmessi
+                        index++;
+                    }
                 }
+
+                byte[] colorBytes = transformation.ColorImageToDepthCamera(capture).Memory.ToArray();
+
+                colorBytes = CompressColorsByteToJPG(colorBytes); //Compressione colori in jpeg
+
+                kinectImage.GetComponent<KinectImage>().SetMeshGivenDepthAndColorCompressed(rawDepth, colorBytes);
+
+                return (rawDepth, colorBytes);
             }
-            
-            byte[] colorBytes = transformation.ColorImageToDepthCamera(capture).Memory.ToArray();
-
-            colorBytes = CompressColorsByteToJPG(colorBytes); //Compressione colori in jpeg
-
-            kinectImage.GetComponent<KinectImage>().SetMeshGivenDepthAndColorCompressed(rawDepth, colorBytes);
-
-            return (rawDepth, colorBytes);
+        }catch(AzureKinectException e) {
+            InfoWindow.Instance.SpawnWindow("Azure Kinect not recognized, restart the application, reconnect the device and try again", 5f);
+            return (null, null);
         }
     }
 

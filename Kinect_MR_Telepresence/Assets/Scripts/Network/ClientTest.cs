@@ -357,25 +357,27 @@ public class ClientTest : MonoBehaviour
         (rawDepth, rawColor) = kinectManager.GetCaptureDepthCompressed();
         //(rawDepth, rawColor) = kinectManager.GetCaptureDepthOptimized(); //
 
-        //compressione dati da inviare (necessario decomprimerli lato server)
-        rawDepth = DataCompression.DeflateCompress(rawDepth);
-        rawColor = DataCompression.DeflateCompress(rawColor);
+        if(rawDepth != null && rawColor != null) {
+            //compressione dati da inviare (necessario decomprimerli lato server)
+            rawDepth = DataCompression.DeflateCompress(rawDepth);
+            rawColor = DataCompression.DeflateCompress(rawColor);
 
-        Debug.Log("Depth deflated : " + rawDepth.Length + "\nColor deflated : " + rawColor.Length);
+            Debug.Log("Depth deflated : " + rawDepth.Length + "\nColor deflated : " + rawColor.Length);
 
-        NetworkDataType packetType = NetworkDataType.DepthColorPacket;
-        int rawDepthLenght = rawDepth.Length;
-        NetDataWriter writer = new();
+            NetworkDataType packetType = NetworkDataType.DepthColorPacket;
+            int rawDepthLenght = rawDepth.Length;
+            NetDataWriter writer = new();
 
-        writer.Put((int)packetType);
-        writer.Put(rawDepthLenght);
-        writer.Put(rawDepth);
+            writer.Put((int)packetType);
+            writer.Put(rawDepthLenght);
+            writer.Put(rawDepth);
 
-        int rawColorLenght = rawColor.Length;
-        writer.Put(rawColorLenght);
-        writer.Put(rawColor);
+            int rawColorLenght = rawColor.Length;
+            writer.Put(rawColorLenght);
+            writer.Put(rawColor);
 
-        SendData(writer, DeliveryMethod.ReliableUnordered);
+            SendData(writer, DeliveryMethod.ReliableUnordered);
+        }
     }
 
     //---METODI GESTIONE UTENTI IN REMOTO E IN LOCALE

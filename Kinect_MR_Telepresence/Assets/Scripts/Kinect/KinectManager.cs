@@ -45,8 +45,6 @@ public class KinectManager : MonoBehaviour
         //derivedFramesCount = maxDerivedFrames;
     }
     private void Start() {
-        depthWidth = 320;
-        depthHeight = 288;
 
         InitializeKinect(0);
 
@@ -74,7 +72,7 @@ public class KinectManager : MonoBehaviour
         }
         config = new DeviceConfiguration();
         config.CameraFPS = FPS.FPS30;
-        config.DepthMode = DepthMode.NFOV_2x2Binned;
+        config.DepthMode = DepthMode.NFOV_Unbinned;
         config.ColorFormat = ImageFormat.ColorBGRA32;
         config.ColorResolution = ColorResolution.R720p;
         config.SynchronizedImagesOnly = true;
@@ -103,13 +101,13 @@ public class KinectManager : MonoBehaviour
                 short[] rawShort = new short[(int)Math.Ceiling((double)rawDepth.Length / 2)];
                 Buffer.BlockCopy(rawDepth, 0, rawShort, 0, rawDepth.Length);
 
-                int index = 0;
-                for (int i = 0; i < depthImage.HeightPixels; i++) {
-                    for (int j = 0; j < depthImage.WidthPixels; j++) {
-                        depthImage.SetPixel<short>(i, j, rawShort[index]); //Si assegnano i pixel dell'immagine depth sulla base dei dati grezzi trasmessi
-                        index++;
+                for(int i = 0; i < rawShort.Length; i++) {
+                    if(rawShort[i] > depthRange) {
+                        rawShort[i] = 0;
                     }
                 }
+
+                Buffer.BlockCopy(rawShort, 0, rawDepth, 0, rawShort.Length * 2);
 
                 byte[] colorBytes = transformation.ColorImageToDepthCamera(capture).Memory.ToArray();
 

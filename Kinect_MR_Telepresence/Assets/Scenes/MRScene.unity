@@ -4131,8 +4131,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e7c469f3cf7fca043bc821af61cc901c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  depthWidth: 320
-  depthHeight: 288
+  depthWidth: 640
+  depthHeight: 576
   kinectImage: {fileID: 1082525623}
   jpgCompressionQuality: 25
   depthRange: 1000

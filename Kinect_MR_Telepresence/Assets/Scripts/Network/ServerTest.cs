@@ -370,7 +370,7 @@ public class ServerTest : MonoBehaviour
     }
 
     private void OnReceiveCalibration(byte[] rawCalibration, int depthWidth, int depthHeight) {
-        tempTransformation = Calibration.GetFromRaw(rawCalibration, DepthMode.NFOV_2x2Binned, ColorResolution.R720p).CreateTransformation(); //For now let's keep static DepthMode and static ColorResolution
+        tempTransformation = Calibration.GetFromRaw(rawCalibration, DepthMode.NFOV_Unbinned, ColorResolution.R720p).CreateTransformation(); //For now let's keep static DepthMode and static ColorResolution
 
         kinectImage.SetTransformation(tempTransformation, depthWidth, depthHeight);
         Debug.Log($"Transformation : {tempTransformation.ToString()} received, width {depthWidth}, height {depthHeight}");

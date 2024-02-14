@@ -44,6 +44,9 @@ public class KinectManager : MonoBehaviour
     private void Awake() {
         //derivedFramesCount = maxDerivedFrames;
     }
+    public GameObject GetLocalKinectImage() {
+        return kinectImage;
+    }
     private void Start() {
 
         InitializeKinect(0);

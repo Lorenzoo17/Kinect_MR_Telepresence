@@ -4,6 +4,7 @@ using MixedReality.Toolkit.UX;
 using UnityEngine;
 using TMPro;
 using MixedReality.Toolkit;
+using MixedReality.Toolkit.SpatialManipulation;
 using UnityEngine.XR;
 
 public class HandMenuManager : MonoBehaviour
@@ -20,12 +21,16 @@ public class HandMenuManager : MonoBehaviour
     private GameObject eyeCheckSpawned;
     private bool isPalmFacingCamera;
     */
+    [Header("Buttons references")]
+    [SerializeField] private PressableButton scanButton;
+    [SerializeField] private PressableButton fixScanButton;
+    [SerializeField] private PressableButton endConnectionButton;
+
     [Header("Button settings")]
-    private PressableButton scanButton;
-    private PressableButton endConnectionButton;
     [SerializeField] private TextMeshPro scanButtonIcon;
     [SerializeField] private Color32 scanInactiveColor;
     [SerializeField] private Color32 scanActiveColor;
+    [SerializeField] private TextMeshPro fixScanButtonIcon;
     [SerializeField] private TextMeshPro endConnectionButtonIcon;
     [SerializeField] private ClientTest client;
 
@@ -47,8 +52,9 @@ public class HandMenuManager : MonoBehaviour
     }
 
     private void SetButtons(){
-        scanButton = transform.Find("Content").Find("ScanButton").GetComponent<PressableButton>();
-        endConnectionButton = transform.Find("Content").Find("EndConnectionButton").GetComponent<PressableButton>();
+        //Per ora assegnati da inspector, quindi questi si commentano
+        //scanButton = transform.Find("Content").Find("ScanButton").GetComponent<PressableButton>();
+        //endConnectionButton = transform.Find("Content").Find("EndConnectionButton").GetComponent<PressableButton>();
 
         scanButton.OnClicked.AddListener(()=>{
             if(kinectManager != null){
@@ -73,6 +79,38 @@ public class HandMenuManager : MonoBehaviour
             Debug.Log("EndConnection Button clicked");
             connection.DisconnectClient();
             connection.DisconnectServer();
+        });
+
+        fixScanButton.OnClicked.AddListener(() => {
+            KinectImage localKinectImage = kinectManager.GetLocalKinectImage().GetComponent<KinectImage>();
+            //Si può disattivare il collider per disabilitare le interazioni
+            localKinectImage.GetComponent<BoxCollider>().enabled = !localKinectImage.GetComponent<BoxCollider>().enabled;
+
+            //Si disattiva il bounds control
+            if(localKinectImage.transform.childCount > 0) { //L'ultimo child del kinect image è la manipulationBox legata al Bounds Control
+                GameObject manipulationBox = localKinectImage.transform.GetChild(localKinectImage.transform.childCount - 1).gameObject;
+                manipulationBox.SetActive(!manipulationBox.activeSelf);
+            }
+
+            //Cambio icona
+            if (localKinectImage.GetComponent<BoxCollider>().enabled) {
+                fixScanButtonIcon.GetComponent<FontIconSelector>().CurrentIconName = "Icon 120";
+            }
+            else {
+                fixScanButtonIcon.GetComponent<FontIconSelector>().CurrentIconName = "Icon 121";
+            }
+
+            //Metodo alternativo per disabilitare le interazioni
+            /*
+            ObjectManipulator kinectImageObjectManipulator = localKinectImage.GetComponent<ObjectManipulator>();
+
+            if(kinectImageObjectManipulator.AllowedManipulations == TransformFlags.None) {
+                kinectImageObjectManipulator.AllowedManipulations = TransformFlags.Move | TransformFlags.Rotate | TransformFlags.Scale;
+            }
+            else {
+                kinectImageObjectManipulator.AllowedManipulations = TransformFlags.None;
+            }
+            */
         });
     }
     /*

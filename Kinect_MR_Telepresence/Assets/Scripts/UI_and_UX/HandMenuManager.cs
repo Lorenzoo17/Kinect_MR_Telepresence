@@ -82,36 +82,46 @@ public class HandMenuManager : MonoBehaviour
         });
 
         fixScanButton.OnClicked.AddListener(() => {
-            KinectImage localKinectImage = kinectManager.GetLocalKinectImage().GetComponent<KinectImage>();
-            //Si può disattivare il collider per disabilitare le interazioni
-            localKinectImage.GetComponent<BoxCollider>().enabled = !localKinectImage.GetComponent<BoxCollider>().enabled;
-
-            //Si disattiva il bounds control
-            if(localKinectImage.transform.childCount > 0) { //L'ultimo child del kinect image è la manipulationBox legata al Bounds Control
-                GameObject manipulationBox = localKinectImage.transform.GetChild(localKinectImage.transform.childCount - 1).gameObject;
-                manipulationBox.SetActive(!manipulationBox.activeSelf);
-            }
-
-            //Cambio icona
-            if (localKinectImage.GetComponent<BoxCollider>().enabled) {
-                fixScanButtonIcon.GetComponent<FontIconSelector>().CurrentIconName = "Icon 120";
-            }
-            else {
-                fixScanButtonIcon.GetComponent<FontIconSelector>().CurrentIconName = "Icon 121";
-            }
-
-            //Metodo alternativo per disabilitare le interazioni
-            /*
-            ObjectManipulator kinectImageObjectManipulator = localKinectImage.GetComponent<ObjectManipulator>();
-
-            if(kinectImageObjectManipulator.AllowedManipulations == TransformFlags.None) {
-                kinectImageObjectManipulator.AllowedManipulations = TransformFlags.Move | TransformFlags.Rotate | TransformFlags.Scale;
-            }
-            else {
-                kinectImageObjectManipulator.AllowedManipulations = TransformFlags.None;
-            }
-            */
+            FixScan();
         });
+    }
+
+    private void Update() {
+        if (Input.GetKeyDown(KeyCode.P)) {
+            FixScan();
+        }
+    }
+
+    private void FixScan() {
+        KinectImage localKinectImage = kinectManager.GetLocalKinectImage().GetComponent<KinectImage>();
+        //Si può disattivare il collider per disabilitare le interazioni
+        localKinectImage.GetComponent<BoxCollider>().enabled = !localKinectImage.GetComponent<BoxCollider>().enabled;
+
+        //Si disattiva il bounds control
+        if (localKinectImage.transform.childCount > 0) { //L'ultimo child del kinect image è la manipulationBox legata al Bounds Control
+            GameObject manipulationBox = localKinectImage.transform.GetChild(localKinectImage.transform.childCount - 1).gameObject;
+            manipulationBox.SetActive(!manipulationBox.activeSelf);
+        }
+
+        //Cambio icona
+        if (localKinectImage.GetComponent<BoxCollider>().enabled) {
+            fixScanButtonIcon.GetComponent<FontIconSelector>().CurrentIconName = "Icon 120";
+        }
+        else {
+            fixScanButtonIcon.GetComponent<FontIconSelector>().CurrentIconName = "Icon 121";
+        }
+
+        //Metodo alternativo per disabilitare le interazioni
+        /*
+        ObjectManipulator kinectImageObjectManipulator = localKinectImage.GetComponent<ObjectManipulator>();
+
+        if(kinectImageObjectManipulator.AllowedManipulations == TransformFlags.None) {
+            kinectImageObjectManipulator.AllowedManipulations = TransformFlags.Move | TransformFlags.Rotate | TransformFlags.Scale;
+        }
+        else {
+            kinectImageObjectManipulator.AllowedManipulations = TransformFlags.None;
+        }
+        */
     }
     /*
     // Update is called once per frame
